@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VULGATA — Latin Flashcards</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #00ff41;
+    --green-dim: #00cc33;
+    --green-faint: #004d14;
+    --green-ghost: #001a07;
+    --bg: #000000;
+    --latin-h: 120;
+    --latin-s: 100%;
+    --latin-l: 50%;
+    --english-h: 120;
+    --english-s: 60%;
+    --english-l: 65%;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+    cursor: crosshair;
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* Rain canvas */
+  #rain {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0.07;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Main card area */
+  #app {
+    position: relative;
+    z-index: 1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Card */
+  #card {
+    width: min(600px, 90vw);
+    min-height: 280px;
+    border: 1px solid var(--green-dim);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 40px;
+    box-shadow: 0 0 30px rgba(0,255,65,0.08), inset 0 0 30px rgba(0,255,65,0.03);
+    transition: box-shadow 0.3s;
+  }
+
+  #card::before, #card::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    border-color: var(--green);
+    border-style: solid;
+  }
+  #card::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+  #card::after  { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+
+  #card-label {
+    position: absolute;
+    top: 10px; left: 16px;
+    font-size: 10px;
+    letter-spacing: 3px;
+    opacity: 0.4;
+    text-transform: uppercase;
+  }
+
+  #card-word {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(2rem, 8vw, 4rem);
+    letter-spacing: 4px;
+    text-align: center;
+    line-height: 1.2;
+    transition: opacity 0.15s;
+  }
+
+  #card-word.latin-word {
+    color: hsl(var(--latin-h), var(--latin-s), var(--latin-l));
+    text-shadow: 0 0 20px hsl(var(--latin-h), var(--latin-s), var(--latin-l));
+  }
+
+  #card-word.english-word {
+    color: hsl(var(--english-h), var(--english-s), var(--english-l));
+    text-shadow: 0 0 20px hsl(var(--english-h), var(--english-s), var(--english-l));
+  }
+
+  #card-sub {
+    margin-top: 12px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    opacity: 0.45;
+    text-transform: uppercase;
+  }
+
+  #card-form-label {
+    position: absolute;
+    bottom: 10px; right: 16px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    opacity: 0.35;
+  }
+
+  /* Progress */
+  #progress {
+    margin-top: 20px;
+    font-size: 11px;
+    letter-spacing: 3px;
+    opacity: 0.3;
+  }
+
+  /* Buttons */
+  #buttons {
+    margin-top: 32px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--green-dim);
+    color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    padding: 10px 20px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .btn:hover {
+    color: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 0 12px rgba(0,255,65,0.2);
+  }
+
+  .btn:active { opacity: 0.6; }
+
+  /* Menu toggle */
+  #menu-toggle {
+    position: fixed;
+    top: 20px; right: 20px;
+    z-index: 100;
+    background: transparent;
+    border: 1px solid var(--green-faint);
+    color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    padding: 8px 14px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+  #menu-toggle:hover { border-color: var(--green-dim); color: var(--green); }
+
+  /* Menu panel */
+  #menu {
+    position: fixed;
+    top: 0; right: 0;
+    width: min(360px, 100vw);
+    height: 100vh;
+    background: rgba(0,4,0,0.97);
+    border-left: 1px solid var(--green-faint);
+    z-index: 200;
+    overflow-y: auto;
+    padding: 24px;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  }
+
+  #menu.open { transform: translateX(0); }
+
+  #menu-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: transparent;
+    border: 1px solid var(--green-faint);
+    color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 6px 12px;
+    cursor: pointer;
+    letter-spacing: 2px;
+  }
+  #menu-close:hover { border-color: var(--green); color: var(--green); }
+
+  .menu-section {
+    margin-bottom: 28px;
+  }
+
+  .menu-title {
+    font-size: 10px;
+    letter-spacing: 4px;
+    opacity: 0.4;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--green-faint);
+  }
+
+  /* Sliders */
+  .slider-row {
+    margin-bottom: 14px;
+  }
+
+  .slider-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    opacity: 0.5;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 1px;
+    background: var(--green-faint);
+    outline: none;
+    border: none;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px; height: 10px;
+    background: transparent;
+    border: 1px solid var(--green);
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(0,255,65,0.4);
+  }
+
+  /* Font selector */
+  .font-select {
+    background: transparent;
+    border: 1px solid var(--green-faint);
+    color: var(--green-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    padding: 6px 10px;
+    width: 100%;
+    cursor: pointer;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+  .font-select option { background: #000; }
+
+  /* Toggle buttons */
+  .toggle-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .toggle-btn {
+    background: transparent;
+    border: 1px solid var(--green-faint);
+    color: rgba(0,255,65,0.35);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 6px 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  .toggle-btn.active {
+    border-color: var(--green-dim);
+    color: var(--green);
+    box-shadow: 0 0 8px rgba(0,255,65,0.15);
+  }
+
+  /* Color preview swatches */
+  .color-preview {
+    width: 100%;
+    height: 24px;
+    border: 1px solid var(--green-faint);
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+  }
+
+  /* Flicker animation */
+  @keyframes flicker {
+    0%, 95%, 100% { opacity: 1; }
+    96% { opacity: 0.8; }
+    97% { opacity: 1; }
+    98% { opacity: 0.7; }
+  }
+
+  #card-word { animation: flicker 8s infinite; }
+
+  @keyframes fadein {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .word-appear { animation: fadein 0.2s ease; }
+
+  /* No words warning */
+  #no-words {
+    font-size: 12px;
+    letter-spacing: 3px;
+    opacity: 0.4;
+    text-align: center;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="rain"></canvas>
+
+<button id="menu-toggle">⌥ OPTIONS</button>
+
+<div id="app">
+  <div id="card">
+    <div id="card-label">LATIN</div>
+    <div id="card-word" class="latin-word">—</div>
+    <div id="card-sub"></div>
+    <div id="card-form-label"></div>
+  </div>
+  <div id="no-words">NO WORDS IN SELECTED POOL</div>
+  <div id="progress">— / —</div>
+  <div id="buttons">
+    <button class="btn" id="btn-forms">FORMS</button>
+    <button class="btn" id="btn-flip">FLIP</button>
+    <button class="btn" id="btn-next">NEXT →</button>
+  </div>
+</div>
+
+<!-- Menu -->
+<div id="menu">
+  <button id="menu-close">✕ CLOSE</button>
+
+  <div style="margin-bottom:28px; margin-top: 8px;">
+    <div class="menu-title">VULGATA // LATIN DRILL</div>
+  </div>
+
+  <div class="menu-section">
+    <div class="menu-title">WORD POOL SIZE</div>
+    <div class="slider-row">
+      <div class="slider-label"><span>MOST COMMON</span><span id="pool-val">25</span></div>
+      <input type="range" id="pool-size" min="10" max="100" step="5" value="25">
+    </div>
+  </div>
+
+  <div class="menu-section">
+    <div class="menu-title">WORD TYPES</div>
+    <div class="toggle-group" id="type-toggles">
+      <button class="toggle-btn active" data-type="all">ALL</button>
+      <button class="toggle-btn active" data-type="noun">NOUNS</button>
+      <button class="toggle-btn active" data-type="verb">VERBS</button>
+      <button class="toggle-btn active" data-type="prep">PREP</button>
+      <button class="toggle-btn active" data-type="conj">CONJ</button>
+      <button class="toggle-btn active" data-type="adj">ADJ</button>
+      <button class="toggle-btn active" data-type="pron">PRON</button>
+      <button class="toggle-btn active" data-type="adv">ADV</button>
+    </div>
+  </div>
+
+  <div class="menu-section">
+    <div class="menu-title">ORDER</div>
+    <div class="toggle-group" id="order-toggles">
+      <button class="toggle-btn active" data-order="random">RANDOM</button>
+      <button class="toggle-btn" data-order="alpha">A→Z</button>
+      <button class="toggle-btn" data-order="alpha-r">Z→A</button>
+    </div>
+  </div>
+
+  <div class="menu-section">
+    <div class="menu-title">CARD DIRECTION</div>
+    <div class="toggle-group" id="dir-toggles">
+      <button class="toggle-btn active" data-dir="latin">LATIN → ENG</button>
+      <button class="toggle-btn" data-dir="english">ENG → LATIN</button>
+    </div>
+  </div>
+
+  <div class="menu-section">
+    <div class="menu-title">FONT</div>
+    <select class="font-select" id="font-select">
+      <option value="'Cinzel', serif">Cinzel (Classical)</option>
+      <option value="'Share Tech Mono', monospace">Share Tech Mono</option>
+      <option value="'Courier New', monospace">Courier New</option>
+      <option value="Georgia, serif">Georgia</option>
+      <option value="'Times New Roman', serif">Times New Roman</option>
+    </select>
+    <div class="slider-row">
+      <div class="slider-label"><span>SIZE</span><span id="font-size-val">4rem</span></div>
+      <input type="range" id="font-size" min="1" max="8" step="0.5" value="4">
+    </div>
+  </div>
+
+  <div class="menu-section">
+    <div class="menu-title">LATIN WORD COLOR (HSL)</div>
+    <div class="slider-row">
+      <div class="slider-label"><span>HUE</span><span id="lh-val">120</span></div>
+      <input type="range" id="latin-h" min="0" max="360" value="120">
+    </div>
+    <div class="slider-row">
+      <div class="slider-label"><span>SATURATION</span><span id="ls-val">100%</span></div>
+      <input type="range" id="latin-s" min="0" max="100" value="100">
+    </div>
+    <div class="slider-row">
+      <div class="slider-label"><span>LIGHTNESS</span><span id="ll-val">50%</span></div>
+      <input type="range" id="latin-l" min="20" max="90" value="50">
+    </div>
+    <div class="color-preview" id="latin-preview" style="color: hsl(120,100%,50%); border-color: hsl(120,100%,50%);">DEUS</div>
+  </div>
+
+  <div class="menu-section">
+    <div class="menu-title">ENGLISH WORD COLOR (HSL)</div>
+    <div class="slider-row">
+      <div class="slider-label"><span>HUE</span><span id="eh-val">120</span></div>
+      <input type="range" id="english-h" min="0" max="360" value="120">
+    </div>
+    <div class="slider-row">
+      <div class="slider-label"><span>SATURATION</span><span id="es-val">60%</span></div>
+      <input type="range" id="english-s" min="0" max="100" value="60">
+    </div>
+    <div class="slider-row">
+      <div class="slider-label"><span>LIGHTNESS</span><span id="el-val">65%</span></div>
+      <input type="range" id="english-l" min="20" max="90" value="65">
+    </div>
+    <div class="color-preview" id="english-preview" style="color: hsl(120,60%,65%); border-color: hsl(120,60%,65%);">GOD</div>
+  </div>
+
+</div>
+
+<script>
+// ── Word database ─────────────────────────────────────────────────────────────
+// rank = Vulgate frequency rank, type = noun/verb/prep/conj/adj/pron/adv
+// forms = [nominative/base, genitive/form2, dative/form3, accusative/form4, ablative/form5, vocative/form6]
+// formLabels = labels for each form
+// For verbs: conjugations. For indeclinables: single form repeated.
+
+const WORDS = [
+  // ── NOUNS (second declension -us) ──
+  {rank:3, type:'noun', latin:'Deus', english:'God',
+   forms:['Deus','Dei','Deo','Deum','Deo','Dee'],
+   formLabels:['Subject','Of God','To/For God','God (object)','From/By God','O God!']},
+  {rank:8, type:'noun', latin:'Dominus', english:'Lord',
+   forms:['Dominus','Domini','Domino','Dominum','Domino','Domine'],
+   formLabels:['Subject','Of the Lord','To/For the Lord','Lord (object)','From the Lord','O Lord!']},
+  {rank:15, type:'noun', latin:'Filius', english:'Son',
+   forms:['Filius','Filii','Filio','Filium','Filio','Fili'],
+   formLabels:['Subject','Of the Son','To/For the Son','Son (object)','From the Son','O Son!']},
+  {rank:18, type:'noun', latin:'Rex', english:'King',
+   forms:['Rex','Regis','Regi','Regem','Rege','Rex'],
+   formLabels:['Subject','Of the King','To/For the King','King (object)','From the King','O King!']},
+  {rank:22, type:'noun', latin:'Pater', english:'Father',
+   forms:['Pater','Patris','Patri','Patrem','Patre','Pater'],
+   formLabels:['Subject','Of the Father','To/For the Father','Father (object)','From the Father','O Father!']},
+  {rank:25, type:'noun', latin:'Homo', english:'Man / Human',
+   forms:['Homo','Hominis','Homini','Hominem','Homine','Homo'],
+   formLabels:['Subject','Of man','To/For man','Man (object)','From man','O man!']},
+  {rank:28, type:'noun', latin:'Populus', english:'People',
+   forms:['Populus','Populi','Populo','Populum','Populo','Popule'],
+   formLabels:['Subject','Of the people','To/For the people','People (object)','From the people','O people!']},
+  {rank:30, type:'noun', latin:'Terra', english:'Earth / Land',
+   forms:['Terra','Terrae','Terrae','Terram','Terra','Terra'],
+   formLabels:['Subject','Of the earth','To/For the earth','Earth (object)','From the earth','O earth!']},
+  {rank:33, type:'noun', latin:'Anima', english:'Soul / Life',
+   forms:['Anima','Animae','Animae','Animam','Anima','Anima'],
+   formLabels:['Subject','Of the soul','To/For the soul','Soul (object)','From the soul','O soul!']},
+  {rank:35, type:'noun', latin:'Mater', english:'Mother',
+   forms:['Mater','Matris','Matri','Matrem','Matre','Mater'],
+   formLabels:['Subject','Of the mother','To/For the mother','Mother (object)','From the mother','O mother!']},
+  {rank:38, type:'noun', latin:'Caelum', english:'Heaven / Sky',
+   forms:['Caelum','Caeli','Caelo','Caelum','Caelo','Caelum'],
+   formLabels:['Subject','Of heaven','To/For heaven','Heaven (object)','From heaven','O heaven!']},
+  {rank:40, type:'noun', latin:'Verbum', english:'Word',
+   forms:['Verbum','Verbi','Verbo','Verbum','Verbo','Verbum'],
+   formLabels:['Subject','Of the word','To/For the word','Word (object)','From the word','O word!']},
+  {rank:42, type:'noun', latin:'Lux', english:'Light',
+   forms:['Lux','Lucis','Luci','Lucem','Luce','Lux'],
+   formLabels:['Subject','Of the light','To/For light','Light (object)','From light','O light!']},
+  {rank:44, type:'noun', latin:'Pax', english:'Peace',
+   forms:['Pax','Pacis','Paci','Pacem','Pace','Pax'],
+   formLabels:['Subject','Of peace','To/For peace','Peace (object)','From peace','O peace!']},
+  {rank:46, type:'noun', latin:'Vita', english:'Life',
+   forms:['Vita','Vitae','Vitae','Vitam','Vita','Vita'],
+   formLabels:['Subject','Of life','To/For life','Life (object)','From life','O life!']},
+  {rank:48, type:'noun', latin:'Via', english:'Way / Road',
+   forms:['Via','Viae','Viae','Viam','Via','Via'],
+   formLabels:['Subject','Of the way','To/For the way','Way (object)','From the way','O way!']},
+  {rank:50, type:'noun', latin:'Aqua', english:'Water',
+   forms:['Aqua','Aquae','Aquae','Aquam','Aqua','Aqua'],
+   formLabels:['Subject','Of water','To/For water','Water (object)','From water','O water!']},
+  {rank:52, type:'noun', latin:'Nox', english:'Night',
+   forms:['Nox','Noctis','Nocti','Noctem','Nocte','Nox'],
+   formLabels:['Subject','Of the night','To/For night','Night (object)','From night','O night!']},
+  {rank:54, type:'noun', latin:'Dies', english:'Day',
+   forms:['Dies','Diei','Diei','Diem','Die','Dies'],
+   formLabels:['Subject','Of the day','To/For the day','Day (object)','From the day','O day!']},
+  {rank:56, type:'noun', latin:'Gloria', english:'Glory',
+   forms:['Gloria','Gloriae','Gloriae','Gloriam','Gloria','Gloria'],
+   formLabels:['Subject','Of glory','To/For glory','Glory (object)','From glory','O glory!']},
+  {rank:58, type:'noun', latin:'Gratia', english:'Grace / Thanks',
+   forms:['Gratia','Gratiae','Gratiae','Gratiam','Gratia','Gratia'],
+   formLabels:['Subject','Of grace','To/For grace','Grace (object)','From grace','O grace!']},
+  {rank:60, type:'noun', latin:'Veritas', english:'Truth',
+   forms:['Veritas','Veritatis','Veritati','Veritatem','Veritate','Veritas'],
+   formLabels:['Subject','Of truth','To/For truth','Truth (object)','From truth','O truth!']},
+  {rank:62, type:'noun', latin:'Spiritus', english:'Spirit',
+   forms:['Spiritus','Spiritus','Spiritui','Spiritum','Spiritu','Spiritus'],
+   formLabels:['Subject','Of the spirit','To/For the spirit','Spirit (object)','From the spirit','O spirit!']},
+  {rank:64, type:'noun', latin:'Agnus', english:'Lamb',
+   forms:['Agnus','Agni','Agno','Agnum','Agno','Agne'],
+   formLabels:['Subject','Of the lamb','To/For the lamb','Lamb (object)','From the lamb','O lamb!']},
+  {rank:66, type:'noun', latin:'Crux', english:'Cross',
+   forms:['Crux','Crucis','Cruci','Crucem','Cruce','Crux'],
+   formLabels:['Subject','Of the cross','To/For the cross','Cross (object)','From the cross','O cross!']},
+  {rank:68, type:'noun', latin:'Peccatum', english:'Sin',
+   forms:['Peccatum','Peccati','Peccato','Peccatum','Peccato','Peccatum'],
+   formLabels:['Subject','Of sin','To/For sin','Sin (object)','From sin','O sin!']},
+  {rank:70, type:'noun', latin:'Mundus', english:'World',
+   forms:['Mundus','Mundi','Mundo','Mundum','Mundo','Munde'],
+   formLabels:['Subject','Of the world','To/For the world','World (object)','From the world','O world!']},
+  {rank:72, type:'noun', latin:'Principium', english:'Beginning',
+   forms:['Principium','Principii','Principio','Principium','Principio','Principium'],
+   formLabels:['Subject','Of the beginning','To/For the beginning','Beginning (object)','From the beginning','O beginning!']},
+  {rank:74, type:'noun', latin:'Regnum', english:'Kingdom',
+   forms:['Regnum','Regni','Regno','Regnum','Regno','Regnum'],
+   formLabels:['Subject','Of the kingdom','To/For the kingdom','Kingdom (object)','From the kingdom','O kingdom!']},
+  {rank:76, type:'noun', latin:'Cor', english:'Heart',
+   forms:['Cor','Cordis','Cordi','Cor','Corde','Cor'],
+   formLabels:['Subject','Of the heart','To/For the heart','Heart (object)','From the heart','O heart!']},
+
+  // ── VERBS ──
+  {rank:2, type:'verb', latin:'esse', english:'to be',
+   forms:['sum','es','est','sumus','estis','sunt'],
+   formLabels:['I am','You are','He/She is','We are','You (pl) are','They are']},
+  {rank:5, type:'verb', latin:'dicere', english:'to say / speak',
+   forms:['dico','dicis','dicit','dicimus','dicitis','dicunt'],
+   formLabels:['I say','You say','He/She says','We say','You (pl) say','They say']},
+  {rank:9, type:'verb', latin:'facere', english:'to do / make',
+   forms:['facio','facis','facit','facimus','facitis','faciunt'],
+   formLabels:['I do','You do','He/She does','We do','You (pl) do','They do']},
+  {rank:12, type:'verb', latin:'venire', english:'to come',
+   forms:['venio','venis','venit','venimus','venitis','veniunt'],
+   formLabels:['I come','You come','He/She comes','We come','You (pl) come','They come']},
+  {rank:16, type:'verb', latin:'ire', english:'to go',
+   forms:['eo','is','it','imus','itis','eunt'],
+   formLabels:['I go','You go','He/She goes','We go','You (pl) go','They go']},
+  {rank:20, type:'verb', latin:'videre', english:'to see',
+   forms:['video','vides','videt','videmus','videtis','vident'],
+   formLabels:['I see','You see','He/She sees','We see','You (pl) see','They see']},
+  {rank:24, type:'verb', latin:'amare', english:'to love',
+   forms:['amo','amas','amat','amamus','amatis','amant'],
+   formLabels:['I love','You love','He/She loves','We love','You (pl) love','They love']},
+  {rank:27, type:'verb', latin:'dare', english:'to give',
+   forms:['do','das','dat','damus','datis','dant'],
+   formLabels:['I give','You give','He/She gives','We give','You (pl) give','They give']},
+  {rank:31, type:'verb', latin:'audire', english:'to hear',
+   forms:['audio','audis','audit','audimus','auditis','audiunt'],
+   formLabels:['I hear','You hear','He/She hears','We hear','You (pl) hear','They hear']},
+  {rank:36, type:'verb', latin:'creare', english:'to create',
+   forms:['creo','creas','creat','creamus','creatis','creant'],
+   formLabels:['I create','You create','He/She creates','We create','You (pl) create','They create']},
+  {rank:39, type:'verb', latin:'credere', english:'to believe',
+   forms:['credo','credis','credit','credimus','creditis','credunt'],
+   formLabels:['I believe','You believe','He/She believes','We believe','You (pl) believe','They believe']},
+  {rank:43, type:'verb', latin:'peccaro', english:'to sin',
+   forms:['pecco','peccas','peccat','peccamus','peccatis','peccant'],
+   formLabels:['I sin','You sin','He/She sins','We sin','You (pl) sin','They sin']},
+  {rank:47, type:'verb', latin:'salvare', english:'to save',
+   forms:['salvo','salvas','salvat','salvamus','salvatis','salvant'],
+   formLabels:['I save','You save','He/She saves','We save','You (pl) save','They save']},
+
+  // ── PREPOSITIONS ──
+  {rank:1, type:'prep', latin:'in', english:'in / into',
+   forms:['in','in','in','in','in','in'],
+   formLabels:['+ ablative = in','+ accusative = into','unchanged','unchanged','unchanged','unchanged']},
+  {rank:6, type:'prep', latin:'ad', english:'to / toward',
+   forms:['ad','ad','ad','ad','ad','ad'],
+   formLabels:['to','toward','for the purpose of','unchanged','unchanged','unchanged']},
+  {rank:10, type:'prep', latin:'ex / e', english:'out of / from',
+   forms:['ex','e','ex','ex','ex','ex'],
+   formLabels:['out of','from','e before consonants','ex before vowels','unchanged','unchanged']},
+  {rank:13, type:'prep', latin:'de', english:'about / down from',
+   forms:['de','de','de','de','de','de'],
+   formLabels:['down from','concerning','about','unchanged','unchanged','unchanged']},
+  {rank:17, type:'prep', latin:'cum', english:'with',
+   forms:['cum','cum','cum','cum','cum','cum'],
+   formLabels:['with','together with','unchanged','unchanged','unchanged','unchanged']},
+  {rank:21, type:'prep', latin:'per', english:'through / by',
+   forms:['per','per','per','per','per','per'],
+   formLabels:['through','by means of','unchanged','unchanged','unchanged','unchanged']},
+  {rank:26, type:'prep', latin:'sub', english:'under / beneath',
+   forms:['sub','sub','sub','sub','sub','sub'],
+   formLabels:['+ ablative = under','+ accusative = under (motion)','unchanged','unchanged','unchanged','unchanged']},
+  {rank:32, type:'prep', latin:'super', english:'above / over',
+   forms:['super','super','super','super','super','super'],
+   formLabels:['above','over','upon','unchanged','unchanged','unchanged']},
+  {rank:37, type:'prep', latin:'ante', english:'before',
+   forms:['ante','ante','ante','ante','ante','ante'],
+   formLabels:['before','in front of','unchanged','unchanged','unchanged','unchanged']},
+  {rank:41, type:'prep', latin:'post', english:'after / behind',
+   forms:['post','post','post','post','post','post'],
+   formLabels:['after','behind','unchanged','unchanged','unchanged','unchanged']},
+
+  // ── CONJUNCTIONS ──
+  {rank:4, type:'conj', latin:'et', english:'and',
+   forms:['et','et','et','et','et','et'],
+   formLabels:['and','also','even','unchanged','unchanged','unchanged']},
+  {rank:7, type:'conj', latin:'sed', english:'but',
+   forms:['sed','sed','sed','sed','sed','sed'],
+   formLabels:['but','however','unchanged','unchanged','unchanged','unchanged']},
+  {rank:11, type:'conj', latin:'quia', english:'because / that',
+   forms:['quia','quia','quia','quia','quia','quia'],
+   formLabels:['because','that (after verbs of saying)','unchanged','unchanged','unchanged','unchanged']},
+  {rank:14, type:'conj', latin:'autem', english:'however / but',
+   forms:['autem','autem','autem','autem','autem','autem'],
+   formLabels:['however','moreover','but (postpositive)','unchanged','unchanged','unchanged']},
+  {rank:19, type:'conj', latin:'nec / neque', english:'and not / nor',
+   forms:['nec','neque','nec','nec','nec','nec'],
+   formLabels:['and not','nor','neither...nor','unchanged','unchanged','unchanged']},
+  {rank:23, type:'conj', latin:'vel', english:'or',
+   forms:['vel','vel','vel','vel','vel','vel'],
+   formLabels:['or','either...or','unchanged','unchanged','unchanged','unchanged']},
+  {rank:29, type:'conj', latin:'si', english:'if',
+   forms:['si','si','si','si','si','si'],
+   formLabels:['if','whether','unchanged','unchanged','unchanged','unchanged']},
+  {rank:34, type:'conj', latin:'ut', english:'so that / as',
+   forms:['ut','ut','ut','ut','ut','ut'],
+   formLabels:['so that','as','when','unchanged','unchanged','unchanged']},
+
+  // ── ADJECTIVES ──
+  {rank:45, type:'adj', latin:'sanctus', english:'holy / saint',
+   forms:['sanctus','sancti','sancto','sanctum','sancto','sancte'],
+   formLabels:['Holy (masc nom)','Of the holy','To/For the holy','Holy (object)','From the holy','O holy!']},
+  {rank:49, type:'adj', latin:'magnus', english:'great / large',
+   forms:['magnus','magni','magno','magnum','magno','magne'],
+   formLabels:['Great (masc nom)','Of the great','To/For the great','Great (object)','From the great','O great!']},
+  {rank:53, type:'adj', latin:'bonus', english:'good',
+   forms:['bonus','boni','bono','bonum','bono','bone'],
+   formLabels:['Good (masc nom)','Of the good','To/For the good','Good (object)','From the good','O good!']},
+  {rank:57, type:'adj', latin:'omnis', english:'all / every',
+   forms:['omnis','omnis','omni','omnem','omni','omnis'],
+   formLabels:['All (nom)','Of all','To/For all','All (object)','From all','O all!']},
+  {rank:61, type:'adj', latin:'novus', english:'new',
+   forms:['novus','novi','novo','novum','novo','nove'],
+   formLabels:['New (masc nom)','Of the new','To/For the new','New (object)','From the new','O new!']},
+  {rank:65, type:'adj', latin:'aeternus', english:'eternal',
+   forms:['aeternus','aeterni','aeterno','aeternum','aeterno','aeterne'],
+   formLabels:['Eternal (masc nom)','Of the eternal','To/For the eternal','Eternal (object)','From the eternal','O eternal!']},
+  {rank:69, type:'adj', latin:'verus', english:'true / real',
+   forms:['verus','veri','vero','verum','vero','vere'],
+   formLabels:['True (masc nom)','Of the true','To/For the true','True (object)','From the true','O true!']},
+  {rank:73, type:'adj', latin:'solus', english:'alone / only',
+   forms:['solus','solius','soli','solum','solo','sole'],
+   formLabels:['Alone (masc nom)','Of the only','To/For the only','Only (object)','From alone','O alone!']},
+
+  // ── PRONOUNS ──
+  {rank:55, type:'pron', latin:'ego', english:'I',
+   forms:['ego','mei','mihi','me','me','—'],
+   formLabels:['I (subject)','Of me','To/For me','Me (object)','By/With me','—']},
+  {rank:59, type:'pron', latin:'tu', english:'you (singular)',
+   forms:['tu','tui','tibi','te','te','tu'],
+   formLabels:['You (subject)','Of you','To/For you','You (object)','By/With you','O you!']},
+  {rank:63, type:'pron', latin:'nos', english:'we / us',
+   forms:['nos','nostri','nobis','nos','nobis','—'],
+   formLabels:['We (subject)','Of us','To/For us','Us (object)','By/With us','—']},
+  {rank:67, type:'pron', latin:'vos', english:'you (plural)',
+   forms:['vos','vestri','vobis','vos','vobis','vos'],
+   formLabels:['You (subject)','Of you (pl)','To/For you (pl)','You (object)','By/With you (pl)','O you (pl)!']},
+  {rank:71, type:'pron', latin:'qui', english:'who / which / that',
+   forms:['qui','cuius','cui','quem','quo','—'],
+   formLabels:['Who (masc nom)','Whose','To/For whom','Whom (object)','By/With whom','—']},
+  {rank:75, type:'pron', latin:'hic', english:'this',
+   forms:['hic','huius','huic','hunc','hoc','—'],
+   formLabels:['This (masc nom)','Of this','To/For this','This (object)','From this','—']},
+  {rank:79, type:'pron', latin:'ille', english:'that / he',
+   forms:['ille','illius','illi','illum','illo','—'],
+   formLabels:['That (masc nom)','Of that','To/For that','That (object)','From that','—']},
+
+  // ── ADVERBS ──
+  {rank:77, type:'adv', latin:'non', english:'not',
+   forms:['non','non','non','non','non','non'],
+   formLabels:['not','unchanged','unchanged','unchanged','unchanged','unchanged']},
+  {rank:80, type:'adv', latin:'nunc', english:'now',
+   forms:['nunc','nunc','nunc','nunc','nunc','nunc'],
+   formLabels:['now','at this time','unchanged','unchanged','unchanged','unchanged']},
+  {rank:82, type:'adv', latin:'iam', english:'now / already',
+   forms:['iam','iam','iam','iam','iam','iam'],
+   formLabels:['already','now','soon','unchanged','unchanged','unchanged']},
+  {rank:84, type:'adv', latin:'sic', english:'thus / so',
+   forms:['sic','sic','sic','sic','sic','sic'],
+   formLabels:['thus','so','in this way','unchanged','unchanged','unchanged']},
+  {rank:86, type:'adv', latin:'bene', english:'well',
+   forms:['bene','bene','bene','bene','bene','bene'],
+   formLabels:['well','rightly','unchanged','unchanged','unchanged','unchanged']},
+  {rank:88, type:'adv', latin:'semper', english:'always',
+   forms:['semper','semper','semper','semper','semper','semper'],
+   formLabels:['always','forever','unchanged','unchanged','unchanged','unchanged']},
+  {rank:90, type:'adv', latin:'iterum', english:'again',
+   forms:['iterum','iterum','iterum','iterum','iterum','iterum'],
+   formLabels:['again','once more','unchanged','unchanged','unchanged','unchanged']},
+  {rank:92, type:'adv', latin:'valde', english:'very / greatly',
+   forms:['valde','valde','valde','valde','valde','valde'],
+   formLabels:['very','greatly','unchanged','unchanged','unchanged','unchanged']},
+  {rank:94, type:'adv', latin:'ubi', english:'where / when',
+   forms:['ubi','ubi','ubi','ubi','ubi','ubi'],
+   formLabels:['where','when','unchanged','unchanged','unchanged','unchanged']},
+  {rank:96, type:'adv', latin:'satis', english:'enough',
+   forms:['satis','satis','satis','satis','satis','satis'],
+   formLabels:['enough','sufficiently','unchanged','unchanged','unchanged','unchanged']},
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let state = {
+  poolSize: 25,
+  activeTypes: new Set(['noun','verb','prep','conj','adj','pron','adv']),
+  order: 'random',
+  direction: 'latin',
+  fontFamily: "'Cinzel', serif",
+  fontSize: 4,
+  isFlipped: false,
+  formIndex: 0,
+  pool: [],
+  poolIndex: 0,
+  currentWord: null,
+};
+
+function buildPool() {
+  let filtered = WORDS.filter(w => state.activeTypes.has(w.type));
+  filtered.sort((a,b) => a.rank - b.rank);
+  filtered = filtered.slice(0, state.poolSize);
+
+  if (state.order === 'random') {
+    for (let i = filtered.length-1; i>0; i--) {
+      const j = Math.floor(Math.random()*(i+1));
+      [filtered[i],filtered[j]] = [filtered[j],filtered[i]];
+    }
+  } else if (state.order === 'alpha') {
+    filtered.sort((a,b) => a.latin.localeCompare(b.latin));
+  } else if (state.order === 'alpha-r') {
+    filtered.sort((a,b) => b.latin.localeCompare(a.latin));
+  }
+
+  state.pool = filtered;
+  state.poolIndex = 0;
+  state.currentWord = filtered[0] || null;
+  state.isFlipped = false;
+  state.formIndex = 0;
+  renderCard();
+}
+
+function renderCard() {
+  const word = state.currentWord;
+  const cardWord = document.getElementById('card-word');
+  const cardLabel = document.getElementById('card-label');
+  const cardSub = document.getElementById('card-sub');
+  const cardFormLabel = document.getElementById('card-form-label');
+  const progress = document.getElementById('progress');
+  const noWords = document.getElementById('no-words');
+  const card = document.getElementById('card');
+
+  if (!word) {
+    card.style.display = 'none';
+    document.getElementById('buttons').style.display = 'none';
+    noWords.style.display = 'block';
+    progress.textContent = '0 / 0';
+    return;
+  }
+
+  card.style.display = 'flex';
+  document.getElementById('buttons').style.display = 'flex';
+  noWords.style.display = 'none';
+
+  // Determine what to show
+  const showingLatin = (!state.isFlipped && state.direction === 'latin') ||
+                       (state.isFlipped && state.direction === 'english');
+
+  // Indeclinable types don't have forms
+  const indeclinable = (word.type === 'prep' || word.type === 'conj' || word.type === 'adv');
+
+  // Clamp formIndex for indeclinables
+  if (indeclinable) state.formIndex = 0;
+
+  const displayForm = word.forms[state.formIndex];
+
+  cardWord.className = 'card-word word-appear ' + (showingLatin ? 'latin-word' : 'english-word');
+
+  if (showingLatin) {
+    cardWord.textContent = displayForm;
+    cardLabel.textContent = word.type.toUpperCase() + ' · LATIN';
+    cardSub.textContent = '';
+  } else {
+    cardWord.textContent = state.formIndex === 0 ? word.english : word.formLabels[state.formIndex];
+    cardLabel.textContent = word.type.toUpperCase() + ' · ENGLISH';
+    cardSub.textContent = '';
+  }
+
+  if (indeclinable) {
+    cardFormLabel.textContent = 'INDECLINABLE';
+  } else {
+    cardFormLabel.textContent = state.formIndex > 0 ? `FORM ${state.formIndex+1}/6` : '';
+  }
+
+  progress.textContent = `${state.poolIndex + 1} / ${state.pool.length}`;
+
+  // Trigger animation
+  void cardWord.offsetWidth;
+  cardWord.classList.add('word-appear');
+}
+
+// ── Controls ───────────────────────────────────────────────────────────────
+document.getElementById('btn-flip').addEventListener('click', () => {
+  state.isFlipped = !state.isFlipped;
+  renderCard();
+});
+
+document.getElementById('btn-forms').addEventListener('click', () => {
+  const w = state.currentWord;
+  if (!w) return;
+  if (w.type === 'prep' || w.type === 'conj' || w.type === 'adv') return;
+  state.formIndex = (state.formIndex + 1) % 6;
+  renderCard();
+});
+
+document.getElementById('btn-next').addEventListener('click', () => {
+  if (!state.pool.length) return;
+  state.poolIndex = (state.poolIndex + 1) % state.pool.length;
+  state.currentWord = state.pool[state.poolIndex];
+  state.isFlipped = false;
+  state.formIndex = 0;
+  renderCard();
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') document.getElementById('btn-next').click();
+  if (e.key === 'ArrowUp' || e.key === 'f') document.getElementById('btn-flip').click();
+  if (e.key === 'ArrowDown' || e.key === 'd') document.getElementById('btn-forms').click();
+});
+
+// ── Menu ───────────────────────────────────────────────────────────────────
+document.getElementById('menu-toggle').addEventListener('click', () => {
+  document.getElementById('menu').classList.add('open');
+});
+document.getElementById('menu-close').addEventListener('click', () => {
+  document.getElementById('menu').classList.remove('open');
+});
+
+// Pool size
+document.getElementById('pool-size').addEventListener('input', function() {
+  state.poolSize = +this.value;
+  document.getElementById('pool-val').textContent = this.value;
+  buildPool();
+});
+
+// Type toggles
+document.getElementById('type-toggles').addEventListener('click', e => {
+  const btn = e.target.closest('.toggle-btn');
+  if (!btn) return;
+  const type = btn.dataset.type;
+
+  if (type === 'all') {
+    const allOn = state.activeTypes.size === 7;
+    if (allOn) {
+      state.activeTypes.clear();
+    } else {
+      ['noun','verb','prep','conj','adj','pron','adv'].forEach(t => state.activeTypes.add(t));
+    }
+  } else {
+    if (state.activeTypes.has(type)) {
+      state.activeTypes.delete(type);
+    } else {
+      state.activeTypes.add(type);
+    }
+  }
+
+  // Update buttons
+  document.querySelectorAll('#type-toggles .toggle-btn').forEach(b => {
+    if (b.dataset.type === 'all') {
+      b.classList.toggle('active', state.activeTypes.size === 7);
+    } else {
+      b.classList.toggle('active', state.activeTypes.has(b.dataset.type));
+    }
+  });
+  buildPool();
+});
+
+// Order toggles
+document.getElementById('order-toggles').addEventListener('click', e => {
+  const btn = e.target.closest('.toggle-btn');
+  if (!btn) return;
+  state.order = btn.dataset.order;
+  document.querySelectorAll('#order-toggles .toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.order === state.order);
+  });
+  buildPool();
+});
+
+// Direction toggles
+document.getElementById('dir-toggles').addEventListener('click', e => {
+  const btn = e.target.closest('.toggle-btn');
+  if (!btn) return;
+  state.direction = btn.dataset.dir;
+  document.querySelectorAll('#dir-toggles .toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.dir === state.direction);
+  });
+  state.isFlipped = false;
+  renderCard();
+});
+
+// Font
+document.getElementById('font-select').addEventListener('change', function() {
+  state.fontFamily = this.value;
+  document.getElementById('card-word').style.fontFamily = state.fontFamily;
+});
+
+document.getElementById('font-size').addEventListener('input', function() {
+  state.fontSize = +this.value;
+  document.getElementById('font-size-val').textContent = this.value + 'rem';
+  document.getElementById('card-word').style.fontSize = this.value + 'rem';
+});
+
+// Color sliders
+function updateColors() {
+  const lh = document.getElementById('latin-h').value;
+  const ls = document.getElementById('latin-s').value;
+  const ll = document.getElementById('latin-l').value;
+  const eh = document.getElementById('english-h').value;
+  const es = document.getElementById('english-s').value;
+  const el = document.getElementById('english-l').value;
+
+  document.getElementById('lh-val').textContent = lh;
+  document.getElementById('ls-val').textContent = ls + '%';
+  document.getElementById('ll-val').textContent = ll + '%';
+  document.getElementById('eh-val').textContent = eh;
+  document.getElementById('es-val').textContent = es + '%';
+  document.getElementById('el-val').textContent = el + '%';
+
+  const latinColor = `hsl(${lh},${ls}%,${ll}%)`;
+  const engColor = `hsl(${eh},${es}%,${el}%)`;
+
+  document.documentElement.style.setProperty('--latin-h', lh);
+  document.documentElement.style.setProperty('--latin-s', ls + '%');
+  document.documentElement.style.setProperty('--latin-l', ll + '%');
+  document.documentElement.style.setProperty('--english-h', eh);
+  document.documentElement.style.setProperty('--english-s', es + '%');
+  document.documentElement.style.setProperty('--english-l', el + '%');
+
+  const lPrev = document.getElementById('latin-preview');
+  lPrev.style.color = latinColor;
+  lPrev.style.borderColor = latinColor;
+
+  const ePrev = document.getElementById('english-preview');
+  ePrev.style.color = engColor;
+  ePrev.style.borderColor = engColor;
+
+  renderCard();
+}
+
+['latin-h','latin-s','latin-l','english-h','english-s','english-l'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateColors);
+});
+
+// ── Matrix rain ────────────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('rain');
+  const ctx = canvas.getContext('2d');
+  const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let cols, drops;
+
+  function init() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    cols = Math.floor(canvas.width / 18);
+    drops = Array(cols).fill(1);
+  }
+
+  function draw() {
+    ctx.fillStyle = 'rgba(0,0,0,0.05)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = '#00ff41';
+    ctx.font = '13px Share Tech Mono';
+    for (let i=0; i<drops.length; i++) {
+      const ch = chars[Math.floor(Math.random()*chars.length)];
+      ctx.fillText(ch, i*18, drops[i]*18);
+      if (drops[i]*18 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    }
+  }
+
+  init();
+  window.addEventListener('resize', init);
+  setInterval(draw, 50);
+})();
+
+// ── Init ───────────────────────────────────────────────────────────────────
+buildPool();
+</script>
+</body>
+</html>
